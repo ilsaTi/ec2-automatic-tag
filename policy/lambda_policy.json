@@ -4,7 +4,7 @@
         {
             "Effect": "Allow",
             "Action": "logs:CreateLogGroup",
-            "Resource": "arn:aws:logs:ca-central-1:883353368571:*:*:*"
+            "Resource": "arn:aws:logs:us-east-1:ACCOUNT_ID:*:*:*"
         },
         {
             "Effect": "Allow",
@@ -13,7 +13,7 @@
                 "logs:PutLogEvents"
             ],
             "Resource": [
-                "arn:aws:logs:ca-central-1:883353368571:*:*:*"
+                "arn:aws:logs:us-east-1:ACCOUNT_ID:*:*:*"
             ]
         },
         {

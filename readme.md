@@ -1,4 +1,4 @@
-# Automatic Tagging Of EC2 With Terraform
+# Automatic Tagging Of AWS EC2 using Terraform
 
 One of the best practices is to create tags to categorize resources by owner. This can be archived multiple ways. AWS Service Catalog is one of the best options to enforce tagging. Here, we are using IaC to deploy an event-based solution that will automatically tag the owner to EC2 resources after their creation. We will use Terraform to archieve this.
 
@@ -16,8 +16,9 @@ Here is a summary of the solution:
 ## Solution
 
 ### Pre-requisites
-1. Terraform (refer to the installation steps [here](https://learn.hashicorp.com/tutorials/terraform/install-cli))
-2. AWS CLI (refer to the installation steps [here](https://docs.aws.amazon.com/cli/latest/userguide/getting-started-install.htm))
+1. Have CloudTrail created and CloudWatch able to monitor the trail 
+2. Terraform (refer to the installation steps [here](https://learn.hashicorp.com/tutorials/terraform/install-cli))
+3. AWS CLI (refer to the installation steps [here](https://docs.aws.amazon.com/cli/latest/userguide/getting-started-install.htm))
 
 ### Infrastructure
 
@@ -85,11 +86,11 @@ terraform plan
 terraform apply -var account_id="ACCOUNT_ID" -var tag_key="TAG_KEY"
 ```
 
-- *ACCOUNT_ID*: the account ID
+- *ACCOUNT_ID*: the account ID (must be updated in *lambda_policy.json*)
 - *TAG_KEY*: the tag key (i.e: Principal, Owner, ... ), default value is *owner*
 
 
-## Résultat
+## Result
 
 The following resources are created:
 
@@ -97,6 +98,49 @@ The following resources are created:
 
 2. The EventBridge rule
 
+
+## Improvements
+
+One could imbricate the policy from *lambda_policy.json*.
+
+```python
+# iam policy
+resource "aws_iam_role_policy" "pol" {
+  name = "lambda_tagEc2_policy"
+  role = aws_iam_role.lambda_assumeRole_policy.id
+  policy = <<POLICY
+{
+    "Version": "2012-10-17",
+    "Statement": [
+        {
+            "Effect": "Allow",
+            "Action": "logs:CreateLogGroup",
+            "Resource": "arn:aws:logs:${var.aws_region}:${var.account_id}:*:*:*"
+        },
+        {
+            "Effect": "Allow",
+            "Action": [
+                "logs:CreateLogStream",
+                "logs:PutLogEvents"
+            ],
+            "Resource": [
+                "arn:aws:logs:${var.aws_region}:${var.account_id}:*:*:*"
+            ]
+        },
+        {
+            "Effect": "Allow",
+            "Action": [
+                "ec2:*"
+            ],
+            "Resource": [
+                "*"
+            ]
+        }
+    ]
+}
+POLICY
+}
+```
 
 ## Documentation
 
