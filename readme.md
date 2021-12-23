@@ -12,7 +12,7 @@ Pour s'assurer que chaque ressource EC2 soit taggé avec le nom du propriétaire
 ## Solution mise en place
 
 ### Pré-requis
-1. Terraform
+1. Terraform (refer to the installation steps [here](https://learn.hashicorp.com/tutorials/terraform/install-cli))
 2. AWS CLI avec un profile ayant les droits ADMIN dans l'environnement cible
 
 ### Procédure
