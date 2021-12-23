@@ -1,25 +1,82 @@
-## Description
+# Automatic Tagging Of EC2 With Terraform
 
-Pour s'assurer que chaque ressource EC2 soit taggé avec le nom du propriétaire, la solution suivante a été mise en place avec Terraform. Dans les grandes lignes:
+One of the best practices is to create tags to categorize resources by owner. This can be archived multiple ways. AWS Service Catalog is one of the best options to enforce tagging. Here, we are using IaC to deploy an event-based solution that will automatically tag the owner to EC2 resources after their creation. We will use Terraform to archieve this.
 
-- Un utilisateur créé un EC2
-- Un *event* **RunInstances** est detecté dans CloudTrail
-- À la détection de l'évènement, la fonction lambda est déclenchée
-- La fonction Lambda identifie le propriétaire et tag la ressource EC2 si le tag est inexistant
+## Use-case
+
+Here is a summary of the solution:
+
+1. a user launches an EC2 instance
+2. a **RunInstances** event is detected in CloudTrail
+3. upon event detection, the lambda function is triggered
+4. the lambda function identifies the owner and tag the EC2 instance accordingly if owner tag is missing
     
 ![Alt text](diagram.PNG?raw=true)
 
-## Solution mise en place
+## Solution
 
-### Pré-requis
+### Pre-requisites
 1. Terraform (refer to the installation steps [here](https://learn.hashicorp.com/tutorials/terraform/install-cli))
-2. AWS CLI avec un profile ayant les droits ADMIN dans l'environnement cible
+2. AWS CLI (refer to the installation steps [here](https://docs.aws.amazon.com/cli/latest/userguide/getting-started-install.htm))
 
-### Procédure
+### Infrastructure
 
-- Exécuter les commandes suivantes pour déployer en spécifiant:
-- *ACCOUNT_ID*: le numéro du compte pour des besoins de conformité
-- *TAG_KEY*: le nom du tag (i.e: proprietaire, owner, ... ), par défaut *owner*
+#### Lambda function
+
+Here is how to create the Lambda function. 
+
+```python
+resource "aws_lambda_function" "function" {
+  filename      = "code/code.zip"
+  function_name = "tagEc2"
+  role          = aws_iam_role.lambda_assumeRole_policy.arn
+  handler       = "index.lambda_handler"
+  runtime       = "python3.9"
+  environment {
+    variables = {
+        TAG_KEY = var.tag_key
+    }
+  }
+  timeout = 600
+}
+
+# role lambda
+resource "aws_iam_role" "lambda_assumeRole_policy" {
+  name = "tagEc2-Role"
+  assume_role_policy = data.local_file.lambda_assumeRole_policy.content
+}
+
+# iam policy
+resource "aws_iam_role_policy" "pol" {
+  name = "lambda_tagEc2_policy"
+  role = aws_iam_role.lambda_assumeRole_policy.id
+  policy = data.local_file.lambda_policy.content
+}
+```
+Note that the IAM policies contents are stored in a local file for more convenience.
+
+#### Event rule
+
+The event rule and target are as follow:
+
+```python
+resource "aws_cloudwatch_event_rule" "event_rule" {
+  name        = "launch-auto-tags"
+  description = ""
+  event_pattern = data.local_file.event_pattern.content
+}
+
+resource "aws_cloudwatch_event_target" "target" {
+  target_id = "lambda"
+  rule      = aws_cloudwatch_event_rule.event_rule.name
+  arn       = aws_lambda_function.function.arn
+}
+```
+The content of event pattern is also stored in a local file. 
+
+### Deploy
+
+To deploy, the commands below must be run with the appropriate parameters:
 
 ```bash
 terraform init
@@ -28,10 +85,19 @@ terraform plan
 terraform apply -var account_id="ACCOUNT_ID" -var tag_key="TAG_KEY"
 ```
 
+- *ACCOUNT_ID*: the account ID
+- *TAG_KEY*: the tag key (i.e: Principal, Owner, ... ), default value is *owner*
+
+
 ## Résultat
 
-Les ressources suivantes sont créées:
+The following resources are created:
 
-1. La fonction Lambda
+1. The lambda function
 
-2. La règle d'EventBridge
+2. The EventBridge rule
+
+
+## Documentation
+
+- [Automatically tagging resources on AWS upon Initialization](https://vticloud.io/en/tu-dong-gan-the-cac-tai-nguyen-tren-aws-khi-khoi-tao/)
